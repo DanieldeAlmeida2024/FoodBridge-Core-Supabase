@@ -1,0 +1,56 @@
+[project]
+# ID do seu projeto Supabase. Pode ser encontrado no painel do Supabase.
+# Exemplo: project_id = "abcdefghijklmnopqrst"
+project_id = ""
+
+[global]
+# Caminho para o diretório de funções Edge (Deno).
+# As funções serão implantadas a partir daqui.
+functions_path = "functions"
+
+# Caminho para o diretório de migrações SQL.
+# As migrações serão aplicadas ao seu banco de dados.
+migrations_path = "migrations"
+
+# Caminho para o diretório de sementes (seed data) para o banco de dados.
+# O arquivo seed.sql será executado após as migrações.
+seed_path = "seed.sql"
+
+# Caminho para o diretório do seu frontend (se estiver no mesmo repositório).
+# O Supabase CLI pode ajudar a configurar o ambiente de desenvolvimento.
+# web_path = "frontend"
+
+[auth]
+# Configurações para o serviço de autenticação do Supabase.
+# Pode ser usado para configurar provedores OAuth, etc.
+
+[api]
+# Configurações para a API REST e GraphQL do Supabase.
+
+[db]
+# Configurações para o banco de dados PostgreSQL.
+# connection_string = "postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
+
+[storage]
+# Configurações para o serviço de armazenamento de arquivos do Supabase.
+
+[realtime]
+# Configurações para o serviço de Realtime do Supabase.
+
+[analytics]
+# Configurações para o serviço de Analytics do Supabase.
+
+[studio]
+# Configurações para o Supabase Studio (interface web).
+
+[inbucket]
+# Configurações para o serviço de e-mail de desenvolvimento.
+
+[graphql]
+# Configurações específicas para o GraphQL.
+
+[sentry]
+# Configurações para integração com Sentry.
+
+[tests]
+# Configurações para testes de integração.
