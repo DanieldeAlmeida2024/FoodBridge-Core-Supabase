@@ -47,7 +47,7 @@ Plain Text
 foodbridge-supabase/
 ├── supabase/                  # Configurações e código do Supabase
 │   ├── migrations/            # Scripts SQL para o banco de dados (tabelas, RLS, funções)
-│   │   └── 20240315_foodbridge_core.sql # Migração principal com toda a estrutura
+│   │   └── 20260313_init.sql # Migração principal com toda a estrutura
 │   ├── functions/             # Edge Functions (TypeScript/Deno)
 │   │   ├── registrar-usuario/ # Função para registro de novos usuários com upload de documentos
 │   │   │   └── index.ts
