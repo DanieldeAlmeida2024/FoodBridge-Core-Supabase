@@ -23,38 +23,40 @@ serve(async (req ) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Verificação de permissão administrativa
+    // 1. Validação de Admin
     const { data: { user } } = await supabaseClient.auth.getUser()
     const { data: perfilAdmin } = await supabaseAdmin
       .from('perfis')
-      .select('tipo_usuario')
+      .select('funcao')
       .eq('id', user?.id)
       .single()
 
-    if (perfilAdmin?.tipo_usuario !== 'Admin') {
-      throw new Error('Acesso negado. Permissão administrativa necessária.')
+    if (perfilAdmin?.funcao !== 'ADMIN') {
+      throw new Error('Acesso negado. Requer privilégios de ADMIN.')
     }
 
     const { usuario_id, aprovar } = await req.json()
 
-    // 2. Atualização do status de verificação
+    // 2. Atualização de Status (conforme ENUM status_usuario)
+    const novoStatus = aprovar ? 'VERIFIED' : 'PENDING_VERIFICATION'
+    
     const { error: updateError } = await supabaseAdmin
       .from('perfis')
-      .update({ esta_verificado: aprovar })
+      .update({ status: novoStatus })
       .eq('id', usuario_id)
 
     if (updateError) throw updateError
 
-    // 3. Registro em log de auditoria
-    await supabaseAdmin.from('audit_logs').insert({
-      user_id: user?.id,
-      action: aprovar ? 'APROVACAO_USUARIO' : 'REPROVACAO_USUARIO',
-      target_id: usuario_id,
-      details: { timestamp: new Date().toISOString() }
+    // 3. Auditoria
+    await supabaseAdmin.from('registros_auditoria').insert({
+      usuario_id: user?.id,
+      acao: aprovar ? 'APROVACAO_USUARIO' : 'REPROVACAO_USUARIO',
+      id_alvo: usuario_id,
+      detalhes: { status_final: novoStatus }
     })
 
     return new Response(
-      JSON.stringify({ mensagem: `Usuário ${aprovar ? 'aprovado' : 'reprovado'} com sucesso.` }),
+      JSON.stringify({ mensagem: `Status do usuário atualizado para: ${novoStatus}` }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 

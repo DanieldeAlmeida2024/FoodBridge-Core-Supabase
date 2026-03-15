@@ -17,25 +17,27 @@ serve(async (req ) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { email, senha, tipo_usuario, cnpj, documento_base64, nome_arquivo, nome_completo } = await req.json()
+    const { email, senha, tipo_usuario, cnpj, documento_base64, nome_arquivo, nome_completo, telefone } = await req.json()
 
-    // 1. Criação de usuário no Auth com metadados para o Trigger
+    const cnpjLimpo = cnpj.replace(/\D/g, "")
+
+    // 1. Criação no Auth com metadados alinhados ao Trigger SQL
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: senha,
       email_confirm: true,
       user_metadata: { 
-        tipo_usuario, 
-        cnpj: cnpj.replace(/\D/g, ""), 
-        nome_completo 
+        tipo_usuario, // Deve ser: 'DONOR', 'PRODUCER', 'DISTRIBUTOR', 'NGO', 'ADMIN'
+        cnpj: cnpjLimpo, 
+        nome_completo,
+        telefone
       }
     })
 
     if (authError) throw authError
     const usuarioId = authData.user.id
 
-    // 2. Upload de documento para o Storage (Pasta por CNPJ)
-    const cnpjLimpo = cnpj.replace(/\D/g, "")
+    // 2. Upload para o bucket 'documentos-verificacao'
     const buffer = Uint8Array.from(atob(documento_base64), c => c.charCodeAt(0))
     
     const { error: storageError } = await supabaseAdmin.storage
@@ -47,11 +49,8 @@ serve(async (req ) => {
 
     if (storageError) throw storageError
 
-    // O perfil é gerado automaticamente pelo Trigger 'tr_novo_usuario_auth' no banco de dados.
-    // O status 'esta_verificado' inicia como FALSE por padrão na tabela 'perfis'.
-
     return new Response(
-      JSON.stringify({ mensagem: "Registro concluído. Aguardando análise documental.", usuarioId }),
+      JSON.stringify({ mensagem: "Registro concluído. Perfil em análise.", usuarioId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 201 }
     )
 
