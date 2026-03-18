@@ -9,67 +9,53 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ENUMS
 -- =====================================================
 
-CREATE TYPE status_organizacao AS ENUM (
-'PENDING_DOCUMENTS','UNDER_REVIEW','VERIFIED','SUSPENDED','INACTIVE'
-);
+DO $$ BEGIN
+CREATE TYPE funcao_usuario AS ENUM ('DONOR','PRODUCER','DISTRIBUTOR','NGO','ADMIN');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE tipo_documento AS ENUM (
-'CNPJ_PROOF','ADDRESS_PROOF','ID_DOCUMENT','LOCATION_PHOTO','ADDITIONAL'
-);
+DO $$ BEGIN
+CREATE TYPE status_usuario AS ENUM ('PENDING_VERIFICATION','VERIFIED','SUSPENDED','INACTIVE');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
+DO $$ BEGIN
+CREATE TYPE status_organizacao AS ENUM ('PENDING_DOCUMENTS','UNDER_REVIEW','VERIFIED','SUSPENDED','INACTIVE');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+CREATE TYPE tipo_documento AS ENUM ('CNPJ_PROOF','ADDRESS_PROOF','ID_DOCUMENT','LOCATION_PHOTO','ADDITIONAL');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
 CREATE TYPE status_documento AS ENUM ('PENDING','VERIFIED','REJECTED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
+DO $$ BEGIN
 CREATE TYPE unidade_medida AS ENUM ('KG','LITER','UNIT','BOX','BATCH');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE nivel_qualidade AS ENUM ('PREMIUM','STANDARD','GRADE_B','SALVAGE');
+DO $$ BEGIN
+CREATE TYPE tipo_doacao AS ENUM ('VEGETABLES','FRUITS','GRAINS','DAIRY','MEAT','PREPARED_FOOD','BAKERY','BEVERAGES','OTHER');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE status_reivindicacao AS ENUM (
-'PENDING','APPROVED','REJECTED','CANCELLED','COMPLETED'
-);
-
-CREATE TYPE status_solicitacao AS ENUM (
-'OPEN','MATCHED','PARTIALLY_FULFILLED','FULFILLED','CANCELLED','EXPIRED'
-);
-
-CREATE TYPE status_coleta AS ENUM (
-'SCHEDULED','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED','NO_SHOW'
-);
-
-CREATE TYPE prioridade AS ENUM ('LOW','MEDIUM','HIGH','URGENT');
-
-CREATE TYPE periodo AS ENUM ('DAILY','WEEKLY','MONTHLY','YEARLY');
-
-CREATE TYPE tipo_notificacao AS ENUM (
-'DONATION_CLAIMED','CLAIM_APPROVED','CLAIM_REJECTED',
-'PICKUP_SCHEDULED','PICKUP_COMPLETED','MATCH_FOUND',
-'DOCUMENT_VERIFIED','DOCUMENT_REJECTED','ACCOUNT_VERIFIED','SYSTEM_ALERT'
-);
-
-CREATE TYPE tipo_doacao AS ENUM (
-'VEGETABLES','FRUITS','GRAINS','DAIRY','MEAT','PREPARED_FOOD',
-'BAKERY','BEVERAGES','OTHER'
-);
-
-CREATE TYPE funcao_usuario AS ENUM (
-'DONOR','PRODUCER','DISTRIBUTOR','NGO','ADMIN'
-);
-
-CREATE TYPE status_usuario AS ENUM (
-'PENDING_VERIFICATION','VERIFIED','SUSPENDED','INACTIVE'
-);
-
-CREATE TYPE status_voluntario AS ENUM ('ACTIVE','INACTIVE','SUSPENDED');
-
+DO $$ BEGIN
 CREATE TYPE status_doacao AS ENUM (
-'DRAFT','PUBLISHED','AVAILABLE','PARTIALLY_CLAIMED',
-'FULLY_CLAIMED','COMPLETED','EXPIRED','CANCELLED'
+'DRAFT','PUBLISHED','AVAILABLE','PARTIALLY_CLAIMED','FULLY_CLAIMED','COMPLETED','EXPIRED','CANCELLED'
 );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- =====================================================
--- PERFIS
+-- PERFIS (extends auth.users)
 -- =====================================================
 
-CREATE TABLE public.perfis (
+CREATE TABLE IF NOT EXISTS public.perfis (
 
 id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
 
@@ -81,7 +67,7 @@ telefone text,
 
 funcao funcao_usuario NOT NULL,
 
-status status_usuario NOT NULL DEFAULT 'PENDING_VERIFICATION',
+status status_usuario DEFAULT 'PENDING_VERIFICATION',
 
 criado_em timestamptz DEFAULT now(),
 
@@ -91,24 +77,12 @@ atualizado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.perfis ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY perfis_self_select
+CREATE POLICY IF NOT EXISTS perfis_select_self
 ON public.perfis
 FOR SELECT
 USING (auth.uid() = id);
 
-CREATE POLICY perfis_admin_select
-ON public.perfis
-FOR SELECT
-USING (
-EXISTS (
-SELECT 1
-FROM public.perfis p
-WHERE p.id = auth.uid()
-AND p.funcao = 'ADMIN'
-)
-);
-
-CREATE POLICY perfis_self_update
+CREATE POLICY IF NOT EXISTS perfis_update_self
 ON public.perfis
 FOR UPDATE
 USING (auth.uid() = id);
@@ -117,7 +91,7 @@ USING (auth.uid() = id);
 -- ORGANIZACOES
 -- =====================================================
 
-CREATE TABLE public.organizacoes (
+CREATE TABLE IF NOT EXISTS public.organizacoes (
 
 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -135,7 +109,7 @@ email text NOT NULL,
 
 website text,
 
-status status_organizacao NOT NULL,
+status status_organizacao,
 
 data_verificacao timestamptz,
 
@@ -149,12 +123,12 @@ atualizado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.organizacoes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY organizacoes_public_read
+CREATE POLICY IF NOT EXISTS organizacoes_read
 ON public.organizacoes
 FOR SELECT
 USING (true);
 
-CREATE POLICY organizacoes_owner_manage
+CREATE POLICY IF NOT EXISTS organizacoes_owner
 ON public.organizacoes
 FOR ALL
 USING (auth.uid() = responsavel_id);
@@ -163,17 +137,17 @@ USING (auth.uid() = responsavel_id);
 -- DOCUMENTOS
 -- =====================================================
 
-CREATE TABLE public.documentos (
+CREATE TABLE IF NOT EXISTS public.documentos (
 
 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
-usuario_id uuid REFERENCES public.perfis(id) NOT NULL,
+usuario_id uuid REFERENCES public.perfis(id),
 
-tipo tipo_documento NOT NULL,
+tipo tipo_documento,
 
 url text NOT NULL,
 
-status status_documento NOT NULL DEFAULT 'PENDING',
+status status_documento DEFAULT 'PENDING',
 
 upload_em timestamptz DEFAULT now(),
 
@@ -189,34 +163,22 @@ atualizado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.documentos ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY documentos_owner
+CREATE POLICY IF NOT EXISTS documentos_owner
 ON public.documentos
 FOR ALL
 USING (auth.uid() = usuario_id);
-
-CREATE POLICY documentos_admin
-ON public.documentos
-FOR ALL
-USING (
-EXISTS (
-SELECT 1
-FROM public.perfis
-WHERE id = auth.uid()
-AND funcao = 'ADMIN'
-)
-);
 
 -- =====================================================
 -- DOACOES
 -- =====================================================
 
-CREATE TABLE public.doacoes (
+CREATE TABLE IF NOT EXISTS public.doacoes (
 
 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
-doador_id uuid REFERENCES public.perfis(id) NOT NULL,
+doador_id uuid REFERENCES public.perfis(id),
 
-tipo_alimento tipo_doacao NOT NULL,
+tipo_alimento tipo_doacao,
 
 descricao_alimento text,
 
@@ -230,9 +192,11 @@ status status_doacao DEFAULT 'AVAILABLE',
 
 localizacao jsonb NOT NULL,
 
-inicio_janela_coleta timestamptz NOT NULL,
+geo geography(Point,4326),
 
-fim_janela_coleta timestamptz NOT NULL,
+inicio_janela_coleta timestamptz,
+
+fim_janela_coleta timestamptz,
 
 ong_reivindicadora_id uuid REFERENCES public.perfis(id),
 
@@ -242,24 +206,19 @@ atualizado_em timestamptz DEFAULT now()
 
 );
 
-CREATE INDEX idx_doacoes_geo
+-- Índice geoespacial correto
+CREATE INDEX IF NOT EXISTS idx_doacoes_geo
 ON public.doacoes
-USING GIST(
-ST_SetSRID(
-ST_MakePoint(
-(localizacao->>'longitude')::float,
-(localizacao->>'latitude')::float
-),4326)::geography
-);
+USING GIST (geo);
 
 ALTER TABLE public.doacoes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY doacoes_public
+CREATE POLICY IF NOT EXISTS doacoes_read
 ON public.doacoes
 FOR SELECT
 USING (status='AVAILABLE');
 
-CREATE POLICY doacoes_doador
+CREATE POLICY IF NOT EXISTS doacoes_owner
 ON public.doacoes
 FOR ALL
 USING (auth.uid() = doador_id);
@@ -268,7 +227,7 @@ USING (auth.uid() = doador_id);
 -- AUDITORIA
 -- =====================================================
 
-CREATE TABLE public.registros_auditoria (
+CREATE TABLE IF NOT EXISTS public.registros_auditoria (
 
 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -286,25 +245,18 @@ criado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.registros_auditoria ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY auditoria_admin
-ON public.registros_auditoria
-FOR SELECT
-USING (
-EXISTS(
-SELECT 1 FROM public.perfis
-WHERE id = auth.uid()
-AND funcao = 'ADMIN'
-)
-);
-
 -- =====================================================
--- TRIGGER PERFIL AUTOMATICO
+-- TRIGGER PARA PERFIL AUTOMATICO
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.gerar_perfil_automatico()
+
 RETURNS trigger
+
 LANGUAGE plpgsql
+
 SECURITY DEFINER
+
 AS $$
 
 BEGIN
@@ -327,15 +279,21 @@ COALESCE(
 RETURN NEW;
 
 END;
+
 $$;
 
+DROP TRIGGER IF EXISTS tr_novo_usuario_auth ON auth.users;
+
 CREATE TRIGGER tr_novo_usuario_auth
+
 AFTER INSERT ON auth.users
+
 FOR EACH ROW
+
 EXECUTE FUNCTION public.gerar_perfil_automatico();
 
 -- =====================================================
--- BUSCA GEO
+-- FUNÇÃO GEO
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.buscar_doacoes_proximas(
@@ -358,12 +316,9 @@ distancia_km float
 
 )
 
-LANGUAGE plpgsql
+LANGUAGE sql
+
 AS $$
-
-BEGIN
-
-RETURN QUERY
 
 SELECT
 
@@ -375,17 +330,8 @@ d.data_validade,
 d.localizacao,
 
 ST_Distance(
-
-ST_SetSRID(ST_MakePoint(
-(d.localizacao->>'longitude')::float,
-(d.localizacao->>'latitude')::float
-),4326)::geography,
-
-ST_SetSRID(ST_MakePoint(
-lng_usuario,
-lat_usuario
-),4326)::geography
-
+d.geo,
+ST_SetSRID(ST_MakePoint(lng_usuario,lat_usuario),4326)::geography
 )/1000
 
 FROM public.doacoes d
@@ -393,30 +339,21 @@ FROM public.doacoes d
 WHERE d.status='AVAILABLE'
 
 AND ST_DWithin(
-
-ST_SetSRID(ST_MakePoint(
-(d.localizacao->>'longitude')::float,
-(d.localizacao->>'latitude')::float
-),4326)::geography,
-
-ST_SetSRID(ST_MakePoint(
-lng_usuario,
-lat_usuario
-),4326)::geography,
-
+d.geo,
+ST_SetSRID(ST_MakePoint(lng_usuario,lat_usuario),4326)::geography,
 raio_km*1000
-
 )
 
-ORDER BY 7;
+ORDER BY distancia_km;
 
-END;
 $$;
 
 -- =====================================================
--- STORAGE
+-- STORAGE BUCKET
 -- =====================================================
 
 INSERT INTO storage.buckets (id,name,public)
+
 VALUES ('documentos-verificacao','documentos-verificacao',false)
+
 ON CONFLICT (id) DO NOTHING;
