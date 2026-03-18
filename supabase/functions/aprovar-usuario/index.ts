@@ -32,7 +32,7 @@ serve(async (req ) => {
       .single()
 
     if (perfilAdmin?.funcao !== 'ADMIN') {
-      throw new Error('Acesso negado. Requer privilégios de ADMIN')
+      throw new Error('Acesso negado. Requer privilégios de ADMIN.')
     }
 
     const { usuario_id, aprovar } = await req.json()
