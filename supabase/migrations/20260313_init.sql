@@ -336,7 +336,7 @@ d.localizacao,
 ST_Distance(
 d.geo,
 ST_SetSRID(ST_MakePoint(lng_usuario,lat_usuario),4326)::geography
-)/1000
+)/1000 AS distancia_km
 
 FROM public.doacoes d
 
