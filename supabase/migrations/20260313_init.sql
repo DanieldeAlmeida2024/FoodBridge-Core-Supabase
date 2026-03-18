@@ -1,58 +1,56 @@
 -- =====================================================
--- EXTENSÕES
+-- EXTENSIONS
 -- =====================================================
 
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =====================================================
--- ENUMS
+-- ENUM TYPES (idempotent)
 -- =====================================================
 
 DO $$ BEGIN
 CREATE TYPE funcao_usuario AS ENUM ('DONOR','PRODUCER','DISTRIBUTOR','NGO','ADMIN');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
 CREATE TYPE status_usuario AS ENUM ('PENDING_VERIFICATION','VERIFIED','SUSPENDED','INACTIVE');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
 CREATE TYPE status_organizacao AS ENUM ('PENDING_DOCUMENTS','UNDER_REVIEW','VERIFIED','SUSPENDED','INACTIVE');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
 CREATE TYPE tipo_documento AS ENUM ('CNPJ_PROOF','ADDRESS_PROOF','ID_DOCUMENT','LOCATION_PHOTO','ADDITIONAL');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
 CREATE TYPE status_documento AS ENUM ('PENDING','VERIFIED','REJECTED');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
 CREATE TYPE unidade_medida AS ENUM ('KG','LITER','UNIT','BOX','BATCH');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
 CREATE TYPE tipo_doacao AS ENUM ('VEGETABLES','FRUITS','GRAINS','DAIRY','MEAT','PREPARED_FOOD','BAKERY','BEVERAGES','OTHER');
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-CREATE TYPE status_doacao AS ENUM (
-'DRAFT','PUBLISHED','AVAILABLE','PARTIALLY_CLAIMED','FULLY_CLAIMED','COMPLETED','EXPIRED','CANCELLED'
-);
-EXCEPTION WHEN duplicate_object THEN null;
+CREATE TYPE status_doacao AS ENUM ('DRAFT','PUBLISHED','AVAILABLE','PARTIALLY_CLAIMED','FULLY_CLAIMED','COMPLETED','EXPIRED','CANCELLED');
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- =====================================================
--- PERFIS (extends auth.users)
+-- PERFIS
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.perfis (
@@ -77,12 +75,14 @@ atualizado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.perfis ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS perfis_select_self
+DROP POLICY IF EXISTS perfis_select_self ON public.perfis;
+CREATE POLICY perfis_select_self
 ON public.perfis
 FOR SELECT
 USING (auth.uid() = id);
 
-CREATE POLICY IF NOT EXISTS perfis_update_self
+DROP POLICY IF EXISTS perfis_update_self ON public.perfis;
+CREATE POLICY perfis_update_self
 ON public.perfis
 FOR UPDATE
 USING (auth.uid() = id);
@@ -123,12 +123,14 @@ atualizado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.organizacoes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS organizacoes_read
+DROP POLICY IF EXISTS organizacoes_read ON public.organizacoes;
+CREATE POLICY organizacoes_read
 ON public.organizacoes
 FOR SELECT
 USING (true);
 
-CREATE POLICY IF NOT EXISTS organizacoes_owner
+DROP POLICY IF EXISTS organizacoes_owner ON public.organizacoes;
+CREATE POLICY organizacoes_owner
 ON public.organizacoes
 FOR ALL
 USING (auth.uid() = responsavel_id);
@@ -163,7 +165,8 @@ atualizado_em timestamptz DEFAULT now()
 
 ALTER TABLE public.documentos ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS documentos_owner
+DROP POLICY IF EXISTS documentos_owner ON public.documentos;
+CREATE POLICY documentos_owner
 ON public.documentos
 FOR ALL
 USING (auth.uid() = usuario_id);
@@ -206,19 +209,20 @@ atualizado_em timestamptz DEFAULT now()
 
 );
 
--- Índice geoespacial correto
 CREATE INDEX IF NOT EXISTS idx_doacoes_geo
 ON public.doacoes
 USING GIST (geo);
 
 ALTER TABLE public.doacoes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS doacoes_read
+DROP POLICY IF EXISTS doacoes_read ON public.doacoes;
+CREATE POLICY doacoes_read
 ON public.doacoes
 FOR SELECT
 USING (status='AVAILABLE');
 
-CREATE POLICY IF NOT EXISTS doacoes_owner
+DROP POLICY IF EXISTS doacoes_owner ON public.doacoes;
+CREATE POLICY doacoes_owner
 ON public.doacoes
 FOR ALL
 USING (auth.uid() = doador_id);
@@ -246,7 +250,7 @@ criado_em timestamptz DEFAULT now()
 ALTER TABLE public.registros_auditoria ENABLE ROW LEVEL SECURITY;
 
 -- =====================================================
--- TRIGGER PARA PERFIL AUTOMATICO
+-- TRIGGER PERFIL AUTOMATICO
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.gerar_perfil_automatico()
@@ -293,7 +297,7 @@ FOR EACH ROW
 EXECUTE FUNCTION public.gerar_perfil_automatico();
 
 -- =====================================================
--- FUNÇÃO GEO
+-- GEO SEARCH FUNCTION
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.buscar_doacoes_proximas(
