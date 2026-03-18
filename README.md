@@ -45,21 +45,21 @@ Plain Text
 
 
 
-foodbridge-supabase/
-├── supabase/                  # Configurações e código do Supabase
-│   ├── migrations/            # Scripts SQL para o banco de dados (tabelas, RLS, funções)
-│   │   └── 20260313_init.sql # Migração principal com toda a estrutura
-│   ├── functions/             # Edge Functions (TypeScript/Deno)
-│   │   ├── registrar-usuario/ # Função para registro de novos usuários com upload de documentos
-│   │   │   └── index.ts
-│   │   └── aprovar-usuario/   # Função para aprovação/reprovação de usuários por administradores
-│   │       └── index.ts
-│   └── supabase.toml          # Configuração do CLI do Supabase
-├── frontend/                  # Código-fonte da aplicação React (a ser desenvolvida)
-├── .github/                   # Configurações do GitHub Actions para CI/CD
-│   └── workflows/
-│       └── deploy-functions.yml # Workflow para deploy automático das Edge Functions
-└── README.md                  # Este arquivo
+foodbridge-supabase/  
+├── supabase/  
+│   ├── migrations/  
+│   │   └── 20260313_init.sql  
+│   ├── functions/  
+│   │   ├── registrar-usuario/  
+│   │   │   └── index.ts  
+│   │   └── aprovar-usuario/  
+│   │       └── index.ts  
+│   └── supabase.toml  
+├── frontend/  
+├── .github/  
+│   └── workflows/  
+│       └── deploy-functions.yml  
+└── README.md  
 
 
 
