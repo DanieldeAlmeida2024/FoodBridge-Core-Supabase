@@ -1,0 +1,15 @@
+@startuml
+skinparam componentStyle rectangle
+title FoodBridge-Core-Supabase - componentes conceituais
+actor Operador
+component Entrada
+component Aplicacao
+component Integracao
+Operador --> Entrada
+Entrada --> Aplicacao
+Aplicacao --> Integracao
+note right of Aplicacao
+Validar este modelo com o codigo
+antes de expandir contratos.
+end note
+@enduml

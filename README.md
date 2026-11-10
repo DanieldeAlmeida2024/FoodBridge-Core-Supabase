@@ -1,3 +1,35 @@
+# FoodBridge-Core-Supabase
+
+Backend alternativo do FoodBridge com banco relacional, RLS e Edge Functions.
+
+## Início rápido
+**Stack:** Supabase, PostgreSQL, Deno. Os passos abaixo dependem da configuração apropriada do ambiente e de serviços externos.
+
+```bash
+supabase start
+```
+
+**Verificação inicial:** `supabase functions serve`. Não interpretar esse comando como evidência de testes aprovados antes de executá-lo.
+
+## Principais diretórios/arquivos
+- `supabase/migrations`
+- `supabase/functions`
+- `.github/workflows`
+
+## Limitações
+Não presumir integração ativa com a API Kotlin. Evitar executar reset/migrations em banco compartilhado; revisar RLS e políticas antes de produção.
+
+## Documentação técnica
+- [Requisitos](docs/REQUISITOS.md)
+- [Arquitetura](docs/ARQUITETURA.md)
+- [UML](docs/UML.puml)
+- [Plano de testes](docs/PLANO_TESTES.md)
+- [Guia para IA](AGENTS.md)
+
+---
+
+## README anterior preservado
+
 Visão Geral
 
 O FoodBridge é uma plataforma open source de redistribuição de alimentos que conecta doadores (restaurantes, supermercados, produtores rurais) com ONGs e instituições sociais. O objetivo é reduzir o desperdício de alimentos e ampliar o impacto social, utilizando uma arquitetura de baixo custo, escalável globalmente e baseada em serviços serverless.
@@ -182,4 +214,3 @@ SUPABASE_ACCESS_TOKEN: Token de acesso pessoal do Supabase CLI (gerado via supab
 
 •
 SUPABASE_PROJECT_ID: O ID do seu projeto Supabase.
-
