@@ -1,0 +1,19 @@
+@startuml
+actor Registrante
+participant "registrar-usuario" as F
+participant "Auth admin" as A
+participant "Trigger perfil" as T
+database "perfis Postgres" as P
+participant "Storage" as S
+Registrante -> F : POST cadastro + PDF
+F -> A : createUser(metadata)
+A -> T : after auth.users insert
+T -> P : INSERT perfis
+F -> S : upload documentos-verificacao
+alt upload falha
+S --> F : error
+F --> Registrante : 400 (Auth pode permanecer)
+else upload OK
+F --> Registrante : 201 usuarioId
+end
+@enduml

@@ -1,0 +1,19 @@
+@startuml
+actor Usuario
+node "Supabase Edge Functions Deno" {
+component "registrar-usuario" as Register
+component "aprovar-usuario" as Approve
+}
+component "Supabase Auth" as Auth
+component "Supabase Storage\ndocumentos-verificacao" as Storage
+database "PostgreSQL / RLS + PostGIS" as DB
+component "Trigger gerar_perfil_automatico" as Trigger
+Usuario --> Register
+Usuario --> Approve
+Register --> Auth : admin.createUser
+Auth --> Trigger : novo auth.users
+Trigger --> DB : INSERT perfis
+Register --> Storage : upload PDF
+Approve --> Auth : getUser()
+Approve --> DB : funcao ADMIN/status/auditoria
+@enduml
