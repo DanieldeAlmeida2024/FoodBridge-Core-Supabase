@@ -47,6 +47,15 @@ O workflow `.github/workflows/security-tests.yml` executa PostgreSQL 17 descart�
 | Versão | Escopo | Evidência |
 |---|---|---|
 | 2.0.0 proposta | Edge Functions com ADMIN confiável | Testes unitários `role-policy` aprovados em CI #43082223462 |
-| 2.1.0 proposta | Migração incremental de RLS, grants e trigger, com testes SQL | CI PostgreSQL pendente de resultado |
+| 2.1.0 proposta | Migração incremental de RLS, grants e trigger, com testes SQL | CI #43085481171: role-policy e PostgreSQL 17 aprovados |
 
 Relacionar esta alteração ao catálogo [testes de Supabase](../PLANO_TESTES.md) e ao [PR documental #2](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/pull/2). A documentação especializada deve permanecer sincronizada na integração.
+
+## Evidência de CI da migração
+
+- **Execução:** [GitHub Actions 43085481171](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43085481171).
+- **`role-policy`: success** (3 testes unitários Node, decisões administrativas de cadastro/aprovação).
+- **`rls-security`: success** (PostgreSQL 17 efêmero; simulação do trigger legado, aplicação da migração, validação de RLS, grants e negativa de alteração de role/status/email).
+- **Ainda não comprovado:** schema completo e todas as policies Supabase, migração aplicada em ambiente FoodBridge, testes HTTP/Edge/Auth/Storage, inspeção de admins legados e deploy.
+
+O run validou o commit de código/migração `411362f678d1acd5b428e6c50a3ff2e05030a601`. Alterações documentais posteriores exigem confirmação de CI do novo HEAD.
