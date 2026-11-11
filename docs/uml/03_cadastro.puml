@@ -1,0 +1,17 @@
+@startuml
+actor Cliente
+participant "registrar-usuario" as Edge
+participant "Auth Admin" as Auth
+database "perfis PostgreSQL" as DB
+participant "Storage privado" as S
+Cliente -> Edge : email, senha, tipo, CNPJ, PDF
+Edge -> Auth : createUser + user_metadata
+Auth -> DB : trigger gerar_perfil_automatico
+Edge -> S : upload documento
+S --> Edge : resultado
+Edge --> Cliente : 201 ou erro
+note right of DB
+Não confiar em tipo_usuario fornecido pelo cliente
+para atribuir ADMIN; teste FBS-01.
+end note
+@enduml

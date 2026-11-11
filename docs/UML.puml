@@ -1,15 +1,18 @@
 @startuml
-skinparam componentStyle rectangle
-title FoodBridge-Core-Supabase - componentes conceituais
-actor Operador
-component Entrada
-component Aplicacao
-component Integracao
-Operador --> Entrada
-Entrada --> Aplicacao
-Aplicacao --> Integracao
-note right of Aplicacao
-Validar este modelo com o codigo
-antes de expandir contratos.
-end note
+actor Visitante
+component "Supabase Auth" as Auth
+component "Edge registrar-usuario" as Registrar
+component "Edge aprovar-usuario" as Aprovar
+database "PostgreSQL / RLS\nperfis, organizacoes, doacoes" as Pg
+component "RPC PostGIS" as Geo
+folder "Storage\ndocumentos-verificacao (privado)" as Storage
+Visitante --> Registrar
+Registrar --> Auth : admin.createUser
+Auth --> Pg : trigger gerar_perfil_automatico
+Registrar --> Storage : upload PDF
+Visitante --> Aprovar
+Aprovar --> Auth : getUser
+Aprovar --> Pg : status + auditoria
+Visitante --> Geo
+Geo --> Pg : geography/nearby
 @enduml

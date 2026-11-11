@@ -1,0 +1,11 @@
+@startuml
+class perfis { id: UUID <<auth.users>>; email; funcao; status }
+class organizacoes { id: UUID; cnpj; responsavel_id }
+class documentos { id: UUID; usuario_id; tipo; status; url }
+class doacoes { id: UUID; doador_id; quantidade; unidade; geo: geography(Point) }
+class registros_auditoria { id: UUID; usuario_id; acao; id_alvo }
+perfis "1" -- "*" organizacoes : responsável
+perfis "1" -- "*" documentos
+perfis "1" -- "*" doacoes
+perfis "1" -- "*" registros_auditoria
+@enduml

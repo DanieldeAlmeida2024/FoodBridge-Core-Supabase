@@ -214,3 +214,10 @@ SUPABASE_ACCESS_TOKEN: Token de acesso pessoal do Supabase CLI (gerado via supab
 
 •
 SUPABASE_PROJECT_ID: O ID do seu projeto Supabase.
+
+## Documentação técnica individual (v1.0.0)
+
+- [Especificação do projeto](docs/projeto/ESPECIFICACAO.md)
+- [Fontes UML](docs/uml/README.md)
+- [Plano de testes](docs/testes/PLANO_DE_TESTES.md)
+- [Versionamento](docs/controle/VERSIONAMENTO.md)
