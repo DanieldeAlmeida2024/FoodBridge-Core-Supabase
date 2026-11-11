@@ -5,12 +5,16 @@ on:
     paths:
       - "supabase/functions/**"
       - "tests/role-policy.test.ts"
+      - "tests/sql/**"
+      - "supabase/migrations/**"
       - ".github/workflows/security-tests.yml"
   push:
     branches: [main]
     paths:
       - "supabase/functions/**"
       - "tests/role-policy.test.ts"
+      - "tests/sql/**"
+      - "supabase/migrations/**"
       - ".github/workflows/security-tests.yml"
 
 jobs:
@@ -26,3 +30,39 @@ jobs:
           node-version: "22"
       - name: Testar política de autorização sem serviços externos
         run: node --experimental-strip-types --test tests/role-policy.test.ts
+
+  rls-security:
+    name: PostgreSQL 17 - permissões e trigger de perfis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: senha_descartavel_so_ci
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: senha_descartavel_so_ci
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cliente PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Preparar fixture legada isolada
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/bootstrap_auth.sql
+      - name: Aplicar migração de segurança no banco efêmero
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193000_secure_profile_roles.sql
+      - name: Verificar permissões, RLS e trigger
+        run: bash tests/sql/test_profile_security.sh

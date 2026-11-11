@@ -1,0 +1,34 @@
+@startuml
+title FoodBridge Core — origem confiável do papel ADMIN (proposta 2.1.0)
+actor "Solicitante não privilegiado" as Client
+participant "registrar-usuario Edge Function" as Register
+participant "Supabase Auth" as Auth
+participant "Trigger gerar_perfil_automatico" as Trigger
+database "public.perfis" as Profiles
+participant "aprovar-usuario Edge Function" as Approve
+Client -> Register : tipo_usuario informado
+Register -> Register : rejeita ADMIN; permite DONOR/PRODUCER/DISTRIBUTOR/NGO
+Register -> Auth : admin.createUser(app_metadata.tipo_usuario)
+Auth -> Trigger : INSERT auth.users
+Trigger -> Trigger : ler raw_app_meta_data (não user_metadata)
+Trigger -> Profiles : INSERT perfil com funcao confiável ou DONOR
+Client -> Profiles : UPDATE nome,telefone (RLS self)
+Profiles --> Client : permitido no próprio perfil
+Client -> Profiles : UPDATE funcao/status/email
+Profiles --> Client : permissão negada
+Client -> Approve : Bearer JWT + pedido de aprovação
+Approve -> Auth : getUser()
+Auth --> Approve : app_metadata
+Approve -> Approve : exige app_metadata ADMIN
+Approve -> Profiles : consulta funcao/status ADMIN/VERIFIED
+alt Uma verificação falha
+ Approve --> Client : 401/403
+else Admin provisionado
+ Approve -> Profiles : altera status alvo com service_role
+ Approve --> Client : resposta de aprovação
+end
+note bottom
+Mudança SQL/Edge Function ainda não implantada.
+Perímetro real exige auditar admins legados, RLS, Storage e outros endpoints.
+end note
+@enduml
