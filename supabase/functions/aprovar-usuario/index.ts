@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { isTrustedAdminUser } from "../_shared/role-policy.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,10 +13,17 @@ serve(async (req ) => {
   }
 
   try {
+    const authorization = req.headers.get('Authorization')
+    if (!authorization?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ erro: 'Autenticação obrigatória.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401
+      })
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      { global: { headers: { Authorization: authorization } } }
     )
 
     const supabaseAdmin = createClient(
@@ -23,19 +31,39 @@ serve(async (req ) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Validação de Admin
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    const { data: perfilAdmin } = await supabaseAdmin
+    // Uma função em public.perfis não é suficiente: essa coluna era editável por RLS.
+    // Requer autorização independente em app_metadata, controlada pelo administrador.
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    if (authError || !user) {
+      return new Response(JSON.stringify({ erro: 'Sessão inválida.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401
+      })
+    }
+
+    if (!isTrustedAdminUser(user)) {
+      return new Response(JSON.stringify({ erro: 'Acesso negado.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403
+      })
+    }
+
+    const { data: perfilAdmin, error: perfilError } = await supabaseAdmin
       .from('perfis')
-      .select('funcao')
-      .eq('id', user?.id)
+      .select('funcao,status')
+      .eq('id', user.id)
       .single()
 
-    if (perfilAdmin?.funcao !== 'ADMIN') {
-      throw new Error('Acesso negado. Requer privilégios de ADMIN.')
+    if (perfilError || perfilAdmin?.funcao !== 'ADMIN' || perfilAdmin.status !== 'VERIFIED') {
+      return new Response(JSON.stringify({ erro: 'Administrador não habilitado.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403
+      })
     }
 
     const { usuario_id, aprovar } = await req.json()
+    if (typeof usuario_id !== 'string' || typeof aprovar !== 'boolean') {
+      return new Response(JSON.stringify({ erro: 'Dados de aprovação inválidos.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400
+      })
+    }
 
     // 2. Atualização de Status (conforme ENUM status_usuario)
     const novoStatus = aprovar ? 'VERIFIED' : 'PENDING_VERIFICATION'
