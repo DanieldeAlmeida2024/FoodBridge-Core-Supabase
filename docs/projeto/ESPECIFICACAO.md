@@ -1,10 +1,10 @@
 # FoodBridge Core — Auth, RLS, documentos e Edge Functions
 
-**v2.0.0 proposta**, 11/11/2026 · snapshot histórico de código auditado `141f2c60b4d6f55768ca99c2d268f766165dc9c0`. Inspeção estática; não houve execução de integração nesta revisão.
+**v2.1.0 proposta**, 11/11/2026 · snapshot histórico de código auditado `141f2c60b4d6f55768ca99c2d268f766165dc9c0`. Inspeção estática; não houve execução de integração nesta revisão.
 
 ## Evolução de autorização — proposta no PR #3 (sem deploy)
 
-**Código de referência do PR:** [`c12899bc71222b6581fb77715b09c8b2b226a914`](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/commit/c12899bc71222b6581fb77715b09c8b2b226a914). O merge e a migração SQL **não** foram realizados. A descrição original a seguir ainda retrata o estado inicial da `main`.
+**Código de referência do PR:** [`c12899bc71222b6581fb77715b09c8b2b226a914`](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/commit/c12899bc71222b6581fb77715b09c8b2b226a914). O merge e a aplicação da migração SQL em Supabase remoto **não** foram realizados; o código SQL incremental foi preparado e aprovado em PostgreSQL efêmero. A descrição original a seguir ainda retrata o estado inicial da `main`.
 
 | Superfície | Comportamento no código proposto | Invariante | Cobertura |
 |---|---|---|---|
@@ -13,11 +13,24 @@
 | `aprovar-usuario` | Rejeita Bearer ausente (401), sessão sem usuário (401), falta de `app_metadata.tipo_usuario === ADMIN` (403) e perfil diferente de ADMIN/VERIFIED (403) | Autorização requer dado controlado pelo backend **e** estado atual do perfil | 2 unitários de função de decisão; integração HTTP pendente |
 | `aprovar-usuario` | Verifica `usuario_id` como string e `aprovar` como boolean antes de atualizar perfil | Evita tipos inesperados na requisição | Teste HTTP pendente |
 
-**Fronteira de confiança:** `raw_user_meta_data` é editável pelo titular e não pode estabelecer ADMIN. `app_metadata` só deve ser alterado por serviço privilegiado. O perfil `perfis.funcao/status` hoje pode estar sujeito à política de UPDATE do próprio usuário; **a migração RLS ainda não foi corrigida**. O trigger `gerar_perfil_automatico` da migração inicial ainda extrai `tipo_usuario` de `raw_user_meta_data`. O bloqueio duplo da Edge Function mitiga a aprovação, mas **não bloqueia toda atribuição de papel ADMIN no banco**.
+**Fronteira de confiança:** `raw_user_meta_data` é editável pelo titular e não pode estabelecer ADMIN. `app_metadata` só deve ser alterado por serviço privilegiado. O perfil `perfis.funcao/status` hoje pode estar sujeito à política de UPDATE do próprio usuário; **a migração RLS inicial continua vulnerável na main; há uma migração corretiva no PR #3, não aplicada**. O trigger `gerar_perfil_automatico` da migração inicial extrai `tipo_usuario` de `raw_user_meta_data`; a migração corretiva proposta passa a ler somente `raw_app_meta_data`. O bloqueio duplo da Edge Function mitiga a aprovação, mas **não bloqueia toda atribuição de papel ADMIN no banco**.
 
 **Provisionamento:** não há endpoint público de promoção. Um operador autorizado deve escolher administradores legítimos e gravar explicitamente `app_metadata.tipo_usuario = ADMIN` via Admin API, preservando os demais metadados, somente após revisar sua identidade e status. Ausência dessa marca nega aprovação por padrão. Esse procedimento não foi executado.
 
-**Evidência:** [GitHub Actions run 43082223462](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43082223462), job `role-policy` concluído **success**, com 3 testes unitários. Não houve check Deno, testes E2E, execução de SQL ou deploy verificado.
+**Evidência:** [GitHub Actions run 43082223462](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43082223462), job `role-policy` concluído **success**, com 3 testes unitários. Há também [CI #43085481171](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43085481171) com testes de política e SQL **aprovados** no PostgreSQL 17 efêmero. Não houve check Deno, testes E2E/HTTP, Supabase completo ou deploy verificado.
+
+## Correção SQL incremental — esquema de perfis (2.1.0 proposta)
+
+**Fonte:** migração [`supabase/migrations/20261111193000_secure_profile_roles.sql`](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/blob/fix/p0-trusted-admin-authorization-20261111/supabase/migrations/20261111193000_secure_profile_roles.sql) no PR #3. A migration original é preservada no histórico, para aplicar incrementalmente em bancos que já usaram a baseline.
+
+| Camada | Antes (main) | Depois (na branch PR #3) | Verificação |
+|---|---|---|---|
+| `perfis` — UPDATE | Policy permissiva `USING(auth.uid()=id)`, com possibilidade de alterar funcao/status se grants autorizarem | REVOKE amplo seguido de UPDATE **apenas de nome, telefone** + SELECT self; policy `TO authenticated` com `USING` e `WITH CHECK` | Job PostgreSQL 17 sucesso; PostgREST real pendente |
+| `gerar_perfil_automatico` | `raw_user_meta_data.tipo_usuario` | `raw_app_meta_data.tipo_usuario` validado + fallback DONOR | Teste SQL reproduz `user_metadata=ADMIN` e confirma DONOR |
+| Função privilegiada | SECURITY DEFINER sem search_path restrito | `search_path=''`, referências qualificadas, EXECUTE revogado de usuários comuns | Revisão completa de funções e grants pendente |
+| Administradores legados | Possível origem não confiável de ADMIN em cadastros antigos | Não há promoção nem demissão automática; precisa auditoria de identidades e `app_metadata` | Gate humano/operacional **pendente** |
+
+**Evidência SQL:** [run 43085481171](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43085481171). Esses testes usam fixture reduzida de Auth/RLS, e não garantem comportamento do Supabase completo. A migração **não foi aplicada a nenhum banco conectado**. Ler [procedimento e riscos](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/blob/fix/p0-trusted-admin-authorization-20261111/docs/seguranca/PERFIS_AUTORIZACAO.md).
 
 ## Componentes, contratos e limites
 Esta implementação utiliza Supabase Auth, Postgres/PostGIS, Storage e duas Edge Functions Deno/TypeScript. O SQL `supabase/migrations/20260313_init.sql` define enums `funcao_usuario` (DONOR, PRODUCER, DISTRIBUTOR, NGO, ADMIN), `status_usuario`, `status_organizacao`, `tipo_documento`, `status_documento`, `unidade_medida`, `tipo_doacao` e `status_doacao`. Cria `perfis` referenciando `auth.users`, `organizacoes`, `documentos`, `doacoes` com coordenada `geography(Point,4326)` e índice GIST, e `registros_auditoria`. Há políticas RLS, incluindo `perfis_select_self`, `organizacoes_read`, `organizacoes_owner`, `documentos_owner`, `doacoes_read` e `doacoes_owner`.

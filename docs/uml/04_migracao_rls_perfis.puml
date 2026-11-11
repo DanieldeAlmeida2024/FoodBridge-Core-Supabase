@@ -1,0 +1,25 @@
+@startuml
+title FoodBridge Core Supabase — migração de permissões de perfis (v2.1.0 proposta)
+actor "Titular autenticado" as User
+database "public.perfis" as Profiles
+participant "Policy RLS" as RLS
+participant "Permissões PostgreSQL" as Grants
+participant "Trigger gerar_perfil_automatico" as Trigger
+participant "Auth admin.createUser" as Auth
+User -> Profiles : UPDATE nome/telefone do próprio perfil
+Profiles -> Grants : UPDATE(nome,telefone) concedido?
+Grants --> Profiles : sim
+Profiles -> RLS : auth.uid() = id (USING + WITH CHECK)
+RLS --> User : edição permitida no próprio perfil
+User -> Profiles : UPDATE funcao/status/email
+Profiles -> Grants : coluna privilegiada?
+Grants --> User : negado
+Auth -> Trigger : INSERT auth.users
+Trigger -> Trigger : ler somente raw_app_meta_data.tipo_usuario
+Trigger -> Profiles : INSERT perfil (role confiável ou DONOR)
+note bottom
+Workflow PostgreSQL 17 em fixture: success (CI 43085481171).
+Migração proposta ainda não executada em Supabase remoto.
+Administradores legados devem ser auditados manualmente.
+end note
+@enduml

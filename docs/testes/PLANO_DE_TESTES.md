@@ -1,6 +1,6 @@
 # Plano de testes — FoodBridge Core — Auth, RLS, documentos e Edge Functions
 
-**v2.0.0 proposta**, 11/11/2026 · snapshot histórico de código auditado `141f2c60b4d6f55768ca99c2d268f766165dc9c0`. Inspeção estática; não houve execução de integração nesta revisão.
+**v2.1.0 proposta**, 11/11/2026 · snapshot histórico de código auditado `141f2c60b4d6f55768ca99c2d268f766165dc9c0`. Inspeção estática; não houve execução de integração nesta revisão.
 
 | ID | Teste | Aceitação | Execução |
 |---|---|---|---|
@@ -33,8 +33,8 @@ Os **13 casos SUP-01 a SUP-13 acima continuam planejados e não executados** por
 | SUP-16 | Usuário modifica `user_metadata.tipo_usuario = ADMIN` e chama aprovação | 403, perfil-alvo inalterado | Política unitária aprovada no CI; Auth/HTTP pendente |
 | SUP-17 | Admin validado somente por `app_metadata` confiável | 200 e evento de auditoria, quando `perfis` é ADMIN/VERIFIED | Unitário de política aprovado; integração pendente |
 | SUP-18 | Mesmo usuário ADMIN com perfil `SUSPENDED` ou `PENDING_VERIFICATION` | 403 sem update | Integração pendente |
-| SUP-19 | Usuário atualiza `perfis.funcao/status` pelo Data API | 403 ou alteração de 0 linhas; dado original preservado | **Bloqueador RLS; migração ainda não criada** |
-| SUP-20 | Trigger automático recebe metadata `ADMIN` editável | Novo perfil não pode receber ADMIN sem provisionamento confiável | **Bloqueador SQL; migração ainda não criada** |
+| SUP-19 | Usuário atualiza `perfis.funcao/status` pelo Data API | 403 ou alteração de 0 linhas; dado original preservado | SQL PostgreSQL 17 aprovado; API real pendente |
+| SUP-20 | Trigger automático recebe metadata `ADMIN` editável | Novo perfil não pode receber ADMIN sem provisionamento confiável | SQL PostgreSQL 17 aprovado; Supabase Auth real pendente |
 | SUP-21 | Edge Function sem Bearer ou com JWT expirado e dados inválidos | 401 e sem mutação | HTTP/Deno pendentes |
 
 ### Registro de execução (não equivale à aceitação de ponta a ponta)
@@ -45,4 +45,13 @@ Os **13 casos SUP-01 a SUP-13 acima continuam planejados e não executados** por
 | `user_metadata` não confere ADMIN | **Aprovado (unitário)** | CI 43082223462 |
 | Somente `app_metadata` assinala ADMIN na função pura | **Aprovado (unitário)** | CI 43082223462 |
 
-[Workflow completo](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43082223462): `role-policy` **success**. Merge, deploy, SQL, Storage e chamadas HTTP **não validados**. Não afirmar que a vulnerabilidade está completamente corrigida.
+[CI da política](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43082223462): três testes unitários aprovados.
+
+[CI de migração e política](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43085481171): `role-policy` **success** e `rls-security` **success** no PostgreSQL 17 efêmero. A fixture SQL cobre atribuição confiável de função, UPDATE de coluna, RLS próprio/cross-user e negação de mudanças de papel/status/email; **não** testa um deployment Supabase completo, migração em banco FoodBridge, Auth HTTP, Storage ou Deno. Os **21 cenários continuam sendo aceitação planejada**.
+
+
+## Dependências de execução (v2.1.0)
+
+- Teste SQL atual: `tests/sql/bootstrap_auth.sql` + `tests/sql/test_profile_security.sh` no PR #3, aplicado ao migration `supabase/migrations/20261111193000_secure_profile_roles.sql`, run #43085481171 **aprovado**.
+- TESTE SUP-19/20 não se encerra somente pelo SQL na fixture: exige PostgREST com papel `authenticated`, trigger no Supabase Auth real e auditoria de concessões herdadas.
+- Testes SUP-03/06/08/09/10/11/12/13/17/18/21 e cenários HTTP ainda pendentes.
