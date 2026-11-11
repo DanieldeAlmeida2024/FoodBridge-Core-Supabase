@@ -16,4 +16,9 @@ Trigger --> DB : INSERT perfis
 Register --> Storage : upload PDF
 Approve --> Auth : getUser()
 Approve --> DB : funcao ADMIN/status/auditoria
+note right of Approve
+PR #3 requer app_metadata tipo ADMIN
+mais perfil ADMIN/VERIFIED.
+Nenhuma migracao RLS foi aplicada.
+end note
 @enduml

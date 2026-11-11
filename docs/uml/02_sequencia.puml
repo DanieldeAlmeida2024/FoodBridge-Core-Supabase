@@ -6,6 +6,11 @@ participant "Trigger perfil" as T
 database "perfis Postgres" as P
 participant "Storage" as S
 Registrante -> F : POST cadastro + PDF
+note right of F
+PR #3 bloqueia tipo ADMIN no cadastro publico,
+antes de criar Auth; continua pendente
+corrigir trigger SQL com metadata editavel.
+end note
 F -> A : createUser(metadata)
 A -> T : after auth.users insert
 T -> P : INSERT perfis
