@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { isAllowedRegistrationRole } from "../_shared/role-policy.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,20 @@ serve(async (req ) => {
 
     const { email, senha, tipo_usuario, cnpj, documento_base64, nome_arquivo, nome_completo, telefone } = await req.json()
 
+    if (!isAllowedRegistrationRole(tipo_usuario)) {
+      return new Response(
+        JSON.stringify({ erro: "Tipo de usuário inválido para cadastro público." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    if (typeof cnpj !== 'string' || !/^\d{14}$/.test(cnpj.replace(/\D/g, ""))) {
+      return new Response(
+        JSON.stringify({ erro: "CNPJ inválido." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
     const cnpjLimpo = cnpj.replace(/\D/g, "")
 
     // 1. Criação no Auth com metadados alinhados ao Trigger SQL
@@ -26,8 +41,10 @@ serve(async (req ) => {
       email,
       password: senha,
       email_confirm: true,
+      // Metadados de aplicação só podem ser alterados pelo backend privilegiado.
+      app_metadata: { tipo_usuario },
       user_metadata: { 
-        tipo_usuario, // Deve ser: 'DONOR', 'PRODUCER', 'DISTRIBUTOR', 'NGO', 'ADMIN'
+        tipo_usuario, // Compatibilidade temporária com o trigger SQL legado; nunca ADMIN
         cnpj: cnpjLimpo, 
         nome_completo,
         telefone
