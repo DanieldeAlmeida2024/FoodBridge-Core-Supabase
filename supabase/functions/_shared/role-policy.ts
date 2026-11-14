@@ -7,8 +7,10 @@ export function isAllowedRegistrationRole(value: unknown): value is PublicRegist
 }
 
 export function isTrustedAdminUser(
-  user: { app_metadata?: { tipo_usuario?: unknown } } | null | undefined
+  user: { app_metadata?: object | null } | null | undefined
 ): boolean {
   // raw_user_meta_data / user_metadata são editáveis pelo usuário: nunca autorizar por eles.
-  return user?.app_metadata?.tipo_usuario === "ADMIN"
+  const metadata = user?.app_metadata
+  return Boolean(metadata && typeof metadata === "object" &&
+    "tipo_usuario" in metadata && metadata.tipo_usuario === "ADMIN")
 }
