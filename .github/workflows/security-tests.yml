@@ -31,6 +31,19 @@ jobs:
       - name: Testar política de autorização sem serviços externos
         run: node --experimental-strip-types --test tests/role-policy.test.ts
 
+  deno-edge-types:
+    name: Deno 2 - verificar tipos das Edge Functions
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck sem publicar funções nem tocar em Supabase
+        run: deno check supabase/functions/registrar-usuario/index.ts supabase/functions/aprovar-usuario/index.ts
+
   rls-security:
     name: PostgreSQL 17 - permissões e trigger de perfis
     runs-on: ubuntu-latest
