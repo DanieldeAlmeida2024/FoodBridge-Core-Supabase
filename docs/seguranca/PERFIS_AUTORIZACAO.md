@@ -71,3 +71,7 @@ A revisão de 14/11/2026 acrescentou proteção por coluna para `organizacoes`, 
 - A matriz `tests/sql/test_resource_security.sh` executa casos positivos e negativos de RLS e privilégios contra PostgreSQL descartável.
 
 **Compatibilidade:** publicação/aprovação de doações e documentos deve ser feita somente por endpoints com validação transacional. Aplicar em staging FoodBridge é obrigatório antes de produção. Não aplicar a nenhuma conta Supabase de outro produto.
+
+## Validação de cadastro (14/11/2026)
+
+A Edge Function do PR de segurança passa a limitar JSON a 3 MiB, PDF a 2 MiB, verificar assinatura inicial de PDF, e-mail, senha mínima de 12 caracteres e dígitos verificadores de CNPJ. O nome de arquivo do cliente é ignorado e o objeto é gravado sob `{auth_user_id}/verificacao.pdf`, sem sobrescrita. Se o upload falhar, a função tenta compensar com exclusão da conta criada; em caso de falha de compensação há intervenção operacional pendente. A documentação de cadastro é propositalmente explícita: **`email_confirm: true` ainda é um bloqueador para uso público, pois não comprova posse do e-mail**; implementar verificação real antes de qualquer lançamento público. Validação de assinatura PDF não equivale a varredura antivírus.
