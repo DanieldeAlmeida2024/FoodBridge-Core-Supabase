@@ -1,0 +1,36 @@
+@startuml
+title FoodBridge Core Supabase — confiança administrativa (proposta PR #3)
+actor "Usuário" as User
+participant "aprovar-usuario (Edge Function)" as Edge
+participant "Supabase Auth" as Auth
+database "public.perfis" as Profiles
+database "registros_auditoria" as Audit
+User -> Edge : POST aprovar-usuario (Bearer JWT)
+alt Sem Bearer / JWT inválido
+  Edge --> User : HTTP 401
+else JWT válido
+  Edge -> Auth : auth.getUser()
+  Auth --> Edge : user + app_metadata
+  Edge -> Edge : verificar app_metadata.tipo_usuario == ADMIN
+  alt app_metadata ausente ou não ADMIN
+    Edge --> User : HTTP 403
+  else app_metadata ADMIN
+    Edge -> Profiles : SELECT funcao,status WHERE id=user.id
+    Profiles --> Edge : perfil (ADMIN, VERIFIED?)
+    alt perfil não ADMIN/VERIFIED
+      Edge --> User : HTTP 403
+    else perfil ADMIN e VERIFIED
+      Edge -> Profiles : UPDATE status WHERE id=usuario_id
+      Edge -> Audit : INSERT auditoria
+      Edge --> User : HTTP 200
+    end
+  end
+end
+note bottom
+IMPORTANTE:
+A migração SQL ainda permite UPDATE no próprio perfil
+e cria perfis usando raw_user_meta_data editável.
+Este diagrama mostra a mitigação parcial das Edge Functions,
+não uma implantação validada.
+end note
+@enduml

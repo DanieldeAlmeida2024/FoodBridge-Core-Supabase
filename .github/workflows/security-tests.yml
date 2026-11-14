@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "supabase/functions/**"
+      - "docs/**"
+      - "README.md"
       - "tests/role-policy.test.ts"
       - "tests/sql/**"
       - "supabase/migrations/**"
@@ -28,6 +30,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Validar índices e fontes UML da documentação
+        run: python3 -m unittest discover -s tests -p 'test_documentacao.py' -v
       - name: Testar política de autorização sem serviços externos
         run: node --experimental-strip-types --test tests/role-policy.test.ts
 
