@@ -1,216 +1,64 @@
-# FoodBridge-Core-Supabase
+# FoodBridge Core — backend experimental Supabase
 
-Backend alternativo do FoodBridge com banco relacional, RLS e Edge Functions.
+Implementação alternativa e **independente** de backend para redistribuição de alimentos, estudando **Supabase Auth, PostgreSQL/PostGIS, Row Level Security (RLS), Storage e Edge Functions Deno**. Este repositório não representa a API Kotlin nem sua infraestrutura Oracle.
 
-## Início rápido
-**Stack:** Supabase, PostgreSQL, Deno. Os passos abaixo dependem da configuração apropriada do ambiente e de serviços externos.
+## Estado verificável
+
+- **Código disponível:** migrações de perfis, organizações, documentos, doações e consultas geográficas; Edge Functions `registrar-usuario` e `aprovar-usuario`.
+- **Segurança versionada:** uma migração incremental de autorização, `20261111193000_secure_profile_roles.sql`, substitui confiança em `user_metadata` por `app_metadata` e aplica grants de coluna + RLS a perfis, organizações, documentos e doações.
+- **CI:** [validação Node, PostgreSQL 17 descartável e Deno 2](https://github.com/DanieldeAlmeida2024/FoodBridge-Core-Supabase/actions/runs/43648235836). Os testes verificam negação de elevação de papel, permissões de atualização, isolamento por proprietário, validação de entrada e compilação das funções. **Não são testes E2E de Auth/PostgREST/Storage real.**
+- **Publicação:** o deploy automático está desativado por segurança. O workflow requer execução manual, variáveis do projeto FoodBridge, ref exata e ambiente de aprovação. Nenhuma migração deste trabalho foi aplicada em banco remoto.
+
+## Limites e invariantes de autorização
+
+| Recurso | Usuário autenticado | Operação privilegiada |
+| --- | --- | --- |
+| Perfis | Ler o próprio perfil; editar nome e telefone | Papel, e-mail, status e identidade |
+| Organizações | Criar registro pendente, consultar próprio ou verificado, editar dados permitidos | Verificação e troca de responsável |
+| Documentos | Consultar apenas documentos próprios | Upload por Edge Function, verificação e auditoria |
+| Doações | Criar/editar apenas rascunhos, consultar próprias ou disponíveis | Publicação, reivindicação e mudança de status |
+| Busca geográfica | Consultar registros autorizados pela RLS | Rotas administrativas e mudanças de estado |
+
+A Edge Function de cadastro rejeita `ADMIN`, valida CNPJ (dígitos verificadores), e-mail, senha de pelo menos 12 caracteres e PDF de até 2 MiB; limita JSON a 3 MiB, não usa nomes de arquivo do cliente, não sobrescreve documentos e tenta compensar falha de upload desfazendo a conta.
+
+## Bloqueadores antes de disponibilizar a usuários reais
+
+1. **Verificação de e-mail:** o fluxo ainda usa `email_confirm: true` em criação administrativa; isso não comprova posse do endereço. Substituir por onboarding com confirmação verificada.
+2. **Antiautomação:** registrar rate limiting persistente e CAPTCHA/antiabuso conforme os limites do produto. O cadastro público que executa ações com service role não deve ser exposto antes disso.
+3. **Transações:** aprovação e trilha de auditoria ainda precisam de operação atômica; falha parcial não pode produzir status sem recibo.
+4. **Documentos:** validar conteúdo completo/antimalware, política de retenção e permissões reais do Storage; o cabeçalho `%PDF-` não comprova segurança do documento.
+5. **Dados:** executar a migração em um projeto de staging FoodBridge identificado e autorizado, após backup, auditoria de perfis ADMIN legados e testes completos Auth, PostgREST, Storage e PostGIS.
+6. **Política operacional:** provisionamento administrativo auditável, recuperação, revogação, controles de acesso e análise LGPD.
+
+Nenhum desses requisitos pode ser considerado concluído apenas porque o CI está verde.
+
+## Reprodução local e testes
+
+Instale a CLI Supabase, Docker e, para a suíte de controle de acesso, Node 22, Deno 2 e PostgreSQL de testes. Nunca aponte testes SQL para produção.
 
 ```bash
 supabase start
+supabase migration list --local
+supabase functions serve registrar-usuario
 ```
 
-**Verificação inicial:** `supabase functions serve`. Não interpretar esse comando como evidência de testes aprovados antes de executá-lo.
+A suíte do GitHub Actions cria PostgreSQL 17 descartável com `tests/sql/bootstrap_auth.sql`, aplica a migração pendente e executa:
+```bash
+node --experimental-strip-types --test tests/role-policy.test.ts
+bash tests/sql/test_profile_security.sh
+bash tests/sql/test_resource_security.sh
+deno check supabase/functions/registrar-usuario/index.ts supabase/functions/aprovar-usuario/index.ts
+```
 
-## Principais diretórios/arquivos
-- `supabase/migrations`
-- `supabase/functions`
-- `.github/workflows`
+Os comandos SQL pressupõem a fixture de CI inicializada e acesso administrativo **somente a um banco descartável**. Não devem ser executados cegamente contra um projeto hospedado.
 
-## Limitações
-Não presumir integração ativa com a API Kotlin. Evitar executar reset/migrations em banco compartilhado; revisar RLS e políticas antes de produção.
+## Documentação específica
 
-## Documentação técnica
-- [Requisitos](docs/REQUISITOS.md)
-- [Arquitetura](docs/ARQUITETURA.md)
-- [UML](docs/UML.puml)
+- [Política de autorização, riscos e procedimento de implantação](docs/seguranca/PERFIS_AUTORIZACAO.md)
 - [Plano de testes](docs/PLANO_TESTES.md)
-- [Guia para IA](AGENTS.md)
-
----
-
-## README anterior preservado
-
-Visão Geral
-
-O FoodBridge é uma plataforma open source de redistribuição de alimentos que conecta doadores (restaurantes, supermercados, produtores rurais) com ONGs e instituições sociais. O objetivo é reduzir o desperdício de alimentos e ampliar o impacto social, utilizando uma arquitetura de baixo custo, escalável globalmente e baseada em serviços serverless.
-
-Este repositório contém a implementação do backend e da infraestrutura utilizando o Supabase, uma alternativa open source ao Firebase, que oferece PostgreSQL, Autenticação, Armazenamento e Edge Functions.
-
-Arquitetura
-
-A arquitetura do FoodBridge no Supabase é projetada para ser eficiente, escalável e de baixo custo, aproveitando os recursos nativos da plataforma:
-
-•
-Supabase Auth: Gerenciamento de usuários, registro, login e controle de acesso.
-
-•
-PostgreSQL com PostGIS: Banco de dados relacional robusto com capacidades geoespaciais avançadas para buscas por localização e raio de distância.
-
-•
-Supabase Storage: Armazenamento seguro de documentos de verificação (CNPJ, licenças) e outras mídias relacionadas às doações.
-
-•
-Edge Functions (Deno): Funções de backend para lógica de negócio complexa, como registro de usuários com upload de documentos e aprovação administrativa, executadas em ambientes de borda para baixa latência.
-
-•
-Row Level Security (RLS): Políticas de segurança implementadas diretamente no banco de dados para controlar o acesso aos dados com base no perfil do usuário autenticado.
-
-Requisitos Funcionais (MVP)
-
-Módulos Implementados:
-
-1.
-Autenticação: Registro, login, recuperação de senha para Doadores e ONGs.
-
-2.
-Verificação de Usuários: Processo de aprovação administrativa para usuários (Doador/ONG) após o cadastro e upload de documentos.
-
-3.
-Publicação de Doação: Doadores podem publicar detalhes de doações, incluindo tipo de alimento, quantidade, validade e localização.
-
-4.
-Listagem de Doações: ONGs podem visualizar doações disponíveis, com busca por localização e raio de distância.
-
-Estrutura do Repositório
-
-Plain Text
-
-
-
-foodbridge-supabase/  
-├── supabase/  
-│   ├── migrations/  
-│   │   └── 20260313_init.sql  
-│   ├── functions/  
-│   │   ├── registrar-usuario/  
-│   │   │   └── index.ts  
-│   │   └── aprovar-usuario/  
-│   │       └── index.ts  
-│   └── supabase.toml  
-├── frontend/  
-├── .github/  
-│   └── workflows/  
-│       └── deploy-functions.yml  
-└── README.md  
-
-
-
-Configuração e Instalação
-
-Pré-requisitos
-
-•
-Conta Supabase ativa.
-
-•
-Supabase CLI instalado e configurado.
-
-•
-Node.js (v18.x ou superior) e npm/yarn.
-
-•
-Deno (para desenvolvimento local de Edge Functions).
-
-1. Configuração do Projeto Supabase
-
-1.
-Inicializar Projeto Local:
-
-Bash
-
-
-supabase init
-supabase link --project-ref [SEU_PROJECT_REF]
-
-
-
-Substitua [SEU_PROJECT_REF] pelo ID do seu projeto Supabase, encontrado no painel do Supabase.
-
-
-
-2.
-Aplicar Migrações do Banco de Dados:
-As migrações SQL já estão configuradas para criar as tabelas, RLS e funções necessárias.
-
-Bash
-
-
-supabase migration up
-
-
-
-Alternativa: Você pode copiar e colar o conteúdo de supabase/migrations/20240315_foodbridge_core.sql diretamente no SQL Editor do seu painel Supabase e executá-lo.
-
-
-
-3.
-Configurar Variáveis de Ambiente para Edge Functions:
-As Edge Functions precisam de chaves de API para interagir com o Supabase. No seu painel Supabase, vá em Project Settings > API e copie a anon key e a service_role key.
-
-Crie um arquivo .env.local na raiz do seu projeto (ou configure diretamente no painel Supabase para produção):
-
-Plain Text
-
-
-SUPABASE_URL="https://[SEU_PROJECT_REF].supabase.co"
-SUPABASE_ANON_KEY="[SUA_ANON_KEY]"
-SUPABASE_SERVICE_ROLE_KEY="[SUA_SERVICE_ROLE_KEY]"
-
-
-
-
-
-4.
-Deploy das Edge Functions:
-
-Bash
-
-
-supabase functions deploy registrar-usuario
-supabase functions deploy aprovar-usuario
-
-
-
-
-
-2. Configuração do Storage (Documentos de Verificação )
-
-1.
-No painel Supabase, vá em Storage.
-
-2.
-Crie um novo bucket com o nome documentos-verificacao.
-
-3.
-Verifique se as políticas de RLS para este bucket, conforme definidas na migração SQL, estão ativas.
-
-3. Configuração do Frontend (React)
-
-O frontend (a ser desenvolvido na pasta frontend/) precisará do SUPABASE_URL e SUPABASE_ANON_KEY para interagir com o Supabase. Utilize o SDK @supabase/supabase-js.
-
-JavaScript
-
-
-// Exemplo de inicialização no frontend
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-
-
-Implementação Automática (GitHub Actions)
-
-Para facilitar o deploy contínuo das Edge Functions, você pode configurar o GitHub Actions. O arquivo .github/workflows/deploy-functions.yml (a ser criado) automatizará o deploy sempre que houver push para a branch main.
-
-Variáveis de Ambiente do GitHub Secrets
-
-No seu repositório GitHub, vá em Settings > Secrets and variables > Actions e adicione os seguintes segredos:
-
-•
-SUPABASE_ACCESS_TOKEN: Token de acesso pessoal do Supabase CLI (gerado via supabase login).
-
-•
-SUPABASE_PROJECT_ID: O ID do seu projeto Supabase.
+- [Arquitetura](docs/ARQUITETURA.md)
+- [Requisitos](docs/REQUISITOS.md)
+- [UML](docs/UML.puml)
+- [Workflow de controle de deploy](.github/workflows/deploy-functions.yml)
+
+**Status:** implementação experimental versionada; proteção de código revisada, produção não homologada e nenhum projeto Supabase FoodBridge remoto confirmado para implantação.
