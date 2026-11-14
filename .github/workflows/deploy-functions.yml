@@ -1,30 +1,45 @@
-name: Deploy Supabase Edge Functions
-
+name: FoodBridge Supabase - deploy manual controlado (bloqueado por padrão)
 on:
-  push:
-    branches: [main]
-    paths:
-      - "supabase/functions/**"
-
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: 'Ref exata do projeto Supabase FoodBridge autorizado'
+        required: true
+        type: string
+      confirmation:
+        description: 'Digite DEPLOY_FOODBRIDGE depois de revisar migrations, Auth e RLS'
+        required: true
+        type: string
+permissions:
+  contents: read
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-
+    if: ${{ vars.FOODBRIDGE_DEPLOY_REF != '' && inputs.confirmation == 'DEPLOY_FOODBRIDGE' }}
+    environment: foodbridge-supabase-production
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-
+          node-version: '22'
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-
-      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      - name: Bloquear projeto incorreto ou não autorizado
+        env:
+          TARGET: ${{ inputs.project_ref }}
+          EXPECTED: ${{ vars.FOODBRIDGE_DEPLOY_REF }}
+          SECRET_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$TARGET" && test -n "$EXPECTED" && test -n "$SECRET_REF" && test -n "$ACCESS_TOKEN"
+          [[ "$TARGET" == "$EXPECTED" && "$TARGET" == "$SECRET_REF" ]] || { echo "::error::Projeto Supabase inconsistente"; exit 1; }
+      - name: Publicar somente Edge Functions (sem aplicar migrations)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - run: supabase functions deploy
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TARGET: ${{ inputs.project_ref }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$TARGET"
+          supabase functions deploy
