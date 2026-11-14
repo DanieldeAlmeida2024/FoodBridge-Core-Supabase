@@ -66,3 +66,5 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261111193000_secure_profile_roles.sql
       - name: Verificar permissões, RLS e trigger
         run: bash tests/sql/test_profile_security.sh
+      - name: Negar autoaprovação de organização, documento e doação
+        run: bash tests/sql/test_resource_security.sh

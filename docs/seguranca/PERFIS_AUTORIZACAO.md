@@ -59,3 +59,15 @@ Relacionar esta alteração ao catálogo [testes de Supabase](../PLANO_TESTES.md
 - **Ainda não comprovado:** schema completo e todas as policies Supabase, migração aplicada em ambiente FoodBridge, testes HTTP/Edge/Auth/Storage, inspeção de admins legados e deploy.
 
 O run validou o commit de código/migração `411362f678d1acd5b428e6c50a3ff2e05030a601`. Alterações documentais posteriores exigem confirmação de CI do novo HEAD.
+
+## Ampliação de autorização — recursos
+
+A revisão de 14/11/2026 acrescentou proteção por coluna para `organizacoes`, `documentos` e `doacoes`, na mesma migração **ainda não aplicada**:
+
+- A organização nasce `PENDING_DOCUMENTS`; o titular não pode escrever `status` nem alterar o proprietário. Somente registros `VERIFIED` tornam-se visíveis a outras contas autenticadas.
+- Documentos são apenas legíveis pelo dono; verificação e escrita pertencem ao backend privilegiado, com trilha de auditoria a ser homologada.
+- A doação nasce como `DRAFT`; o dono só altera campos descritivos de rascunhos, sem publicar nem modificar reivindicação por conta própria.
+- A função histórica de busca `get_nearby_donations` passa a `SECURITY INVOKER`, quando presente, e ambas as RPCs geográficas deixam de aceitar acesso anônimo. Testes devem confirmar integração geográfica com PostGIS.
+- A matriz `tests/sql/test_resource_security.sh` executa casos positivos e negativos de RLS e privilégios contra PostgreSQL descartável.
+
+**Compatibilidade:** publicação/aprovação de doações e documentos deve ser feita somente por endpoints com validação transacional. Aplicar em staging FoodBridge é obrigatório antes de produção. Não aplicar a nenhuma conta Supabase de outro produto.
