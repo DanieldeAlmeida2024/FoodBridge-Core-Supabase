@@ -90,8 +90,8 @@ serve(async (req ) => {
 
   } catch (error) {
     return new Response(
-      JSON.stringify({ erro: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      JSON.stringify({ erro: 'Não foi possível concluir a aprovação.' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 }
     )
   }
 })
